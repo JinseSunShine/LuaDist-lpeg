@@ -70,7 +70,14 @@ extern const byte numsiblings[];
 
 
 
+/* Compatibility for lua 5.1 */
+#if LUA_VERSION_NUM > 501
 
+#define lua_getfenv(L, index)   lua_getuservalue(L, (index))
+#define lua_setfenv(L, index)   lua_setuservalue(L, (index))
+//#define luaL_checkint(L, narg)  luaL_checkinteger(L, (narg))
+
+#endif
 
 
 #endif

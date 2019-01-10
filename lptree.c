@@ -155,7 +155,11 @@ static Pattern *getpattern (lua_State *L, int idx) {
 
 
 static int getsize (lua_State *L, int idx) {
-  return (lua_objlen(L, idx) - sizeof(Pattern)) / sizeof(TTree) + 1;
+#if LUA_VERSION_NUM < 502
+    return (lua_objlen(L, idx) - sizeof(Pattern)) / sizeof(TTree) + 1;
+#else    
+    return (lua_rawlen(L, idx) - sizeof(Pattern)) / sizeof(TTree) + 1;
+#endif
 }
 
 
@@ -216,7 +220,11 @@ static int addtoktable (lua_State *L, int idx) {
   else {
     int n;
     lua_getfenv(L, -1);  /* get ktable from pattern */
+#if LUA_VERSION_NUM < 502
     n = lua_objlen(L, -1);
+#else
+    n = lua_rawlen(L, -1);
+#endif
     if (n == 0) {  /* is it empty/non-existent? */
       lua_pop(L, 1);  /* remove it */
       lua_createtable(L, 1, 0);  /* create a fresh table */
@@ -327,7 +335,14 @@ static TTree *getpatt (lua_State *L, int idx, int *len) {
 */
 static int ktablelen (lua_State *L, int idx) {
   if (!lua_istable(L, idx)) return 0;
-  else return lua_objlen(L, idx);
+  else
+  {
+#if LUA_VERSION_NUM < 502
+      return lua_objlen(L, idx);
+#else
+      return lua_rawlen(L, idx);
+#endif
+  }      
 }
 
 
@@ -363,7 +378,11 @@ static int joinktables (lua_State *L, int p1, int p2) {
     lua_pop(L, 2);  /* nothing to be done; pop tables */
     return 0;  /* nothing to correct */
   }
+#if LUA_VERSION_NUM < 502 
   if (n2 == 0 || lua_equal(L, -2, -1)) {  /* second table is empty or equal? */
+#else
+  if (n2 == 0 || lua_compare(L, -2, -1, LUA_OPEQ)) {  /* second table is empty or equal? */
+#endif
     lua_pop(L, 1);  /* pop 2nd table */
     lua_setfenv(L, -2);  /* set 1st ktable into new pattern */
     return 0;  /* nothing to correct */
@@ -851,7 +870,11 @@ static int collectrules (lua_State *L, int arg, int *totalsize) {
   lua_pushnil(L);  /* prepare to traverse grammar table */
   while (lua_next(L, arg) != 0) {
     if (lua_tonumber(L, -2) == 1 ||
+#if LUA_VERSION_NUM < 502
         lua_equal(L, -2, postab + 1)) {  /* initial rule? */
+#else
+        lua_compare(L, -2, postab + 1, LUA_OPEQ)) {  /* initial rule? */
+#endif
       lua_pop(L, 1);  /* remove value (keep key for lua_next) */
       continue;
     }
@@ -1000,7 +1023,11 @@ static void verifygrammar (lua_State *L, TTree *grammar) {
 */
 static void initialrulename (lua_State *L, TTree *grammar, int frule) {
   if (sib1(grammar)->key == 0) {  /* initial rule is not referenced? */
+#if LUA_VERSION_NUM < 502
     int n = lua_objlen(L, -1) + 1;  /* index for name */
+#else
+    int n = lua_rawlen(L, -1) + 1;  /* index for name */
+#endif
     lua_pushvalue(L, frule);  /* rule's name */
     lua_rawseti(L, -2, n);  /* ktable was on the top of the stack */
     sib1(grammar)->key = n;
@@ -1222,6 +1249,7 @@ int luaopen_lpeg (lua_State *L) {
   luaL_newmetatable(L, PATTERN_T);
   lua_pushnumber(L, MAXBACK);  /* initialize maximum backtracking */
   lua_setfield(L, LUA_REGISTRYINDEX, MAXSTACKIDX);
+
   luaL_register(L, NULL, metareg);
   luaL_register(L, "lpeg", pattreg);
   lua_pushvalue(L, -1);
